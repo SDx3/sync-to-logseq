@@ -1,0 +1,9 @@
+{
+  "require": {
+    "php": ">=8.0",
+    "guzzlehttp/guzzle": "^7.3",
+    "vlucas/phpdotenv": "^5.3",
+    "nesbot/carbon": "^2.52",
+    "monolog/monolog": "^2.3"
+  }
+}
