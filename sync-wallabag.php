@@ -3,7 +3,6 @@
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 
-setlocale(LC_ALL, ['nl', 'nl_NL.UTF-8', 'nl-NL']);
 $articles = [];
 
 require 'vendor/autoload.php';
