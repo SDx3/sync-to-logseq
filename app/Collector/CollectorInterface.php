@@ -20,26 +20,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+namespace App\Collector;
 
-declare(strict_types=1);
+/**
+ * Interface CollectorInterface
+ */
+interface CollectorInterface
+{
+    /**
+     * @param array $configuration
+     */
+    public function setConfiguration(array $configuration): void;
 
-use Dotenv\Dotenv;
-use Monolog\Formatter\LineFormatter;
-use Monolog\Handler\StreamHandler;
-use Monolog\Logger;
+    /**
+     * @param bool $skipCache
+     */
+    public function collect(bool $skipCache = false): void;
 
-$dotenv = Dotenv::createImmutable(__DIR__);
-$dotenv->load();
+    /**
+     * @return array
+     */
+    public function getCollection(): array;
 
-// define cache path
-const CACHE = __DIR__ . '/cache';
-
-// set up monolog
-$log          = new Logger('sync');
-$stringFormat = "[%datetime%] %level_name%: %message% %context% %extra%\n";
-$dateFormat   = 'H:i:s';
-$formatter    = new LineFormatter($stringFormat, $dateFormat, true, true);
-$handler      = new StreamHandler('php://stdout', $_ENV['LOG_LEVEL']);
-$handler->setFormatter($formatter);
-$log->pushHandler($handler);
-setlocale(LC_ALL, ['nl', 'nl_NL.UTF-8', 'nl-NL']);
+}
