@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use Carbon\Carbon;
 use GuzzleHttp\Client;
 
 require 'vendor/autoload.php';
@@ -17,7 +18,7 @@ $opts      = [
     ],
 ];
 
-$content = "public:: true\n\n- Public bookmarks of [[Sander Dorigo]], generated using the [bookmark sync script](https://github.com/SDx3/bookmark-sync).\n";
+$content = "public:: true\n\n- Publieke bookmarks van [[Sander Dorigo]], gegenereerd met een [handig tooltje](https://github.com/SDx3/sync-to-logseq).\n";
 
 // collect all bookmarks with their folder ID:
 $res   = $client->get(sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/bookmark?limit=250', $_ENV['NEXTCLOUD_HOST']), $opts);
@@ -27,7 +28,7 @@ $total = 0;
 if (isset($body['data'])) {
     foreach ($body['data'] as $entry) {
         $folderId               = $entry['folders'][0] ?? -1;
-        $bookmarks[$folderId][] = ['title' => $entry['title'], 'url' => $entry['url']];
+        $bookmarks[$folderId][] = ['title' => $entry['title'], 'url' => $entry['url'], 'added' => new Carbon($entry['added'])];
         $total++;
     }
 }
@@ -61,6 +62,9 @@ function processFolders(string $content, array $bookmarks, array $folders, int $
                     }
                     $content .= str_repeat("\t", $level + 1);
                     $content .= sprintf('- [%s](%s) (%s)', $bookmark['title'], $bookmark['url'], $host);
+                    $content .= "\n";
+                    // add time of addition:
+                    $content .= sprintf('  Gebookmarkt op %s', $bookmark['added']->formatLocalized('%A %e %B %Y'));
                     $content .= "\n";
                 }
             }

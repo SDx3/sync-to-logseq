@@ -17,3 +17,4 @@ $formatter    = new LineFormatter($stringFormat, $dateFormat, true, true);
 $handler      = new StreamHandler('php://stdout', $_ENV['LOG_LEVEL']);
 $handler->setFormatter($formatter);
 $log->pushHandler($handler);
+setlocale(LC_ALL, ['nl', 'nl_NL.UTF-8', 'nl-NL']);
