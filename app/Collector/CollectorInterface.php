@@ -22,6 +22,8 @@
  */
 namespace App\Collector;
 
+use Monolog\Logger;
+
 /**
  * Interface CollectorInterface
  */
@@ -41,5 +43,10 @@ interface CollectorInterface
      * @return array
      */
     public function getCollection(): array;
+
+    /**
+     * @param Logger $logger
+     */
+    public function setLogger(Logger $logger): void;
 
 }

@@ -23,7 +23,10 @@
 
 namespace App\Collector;
 
+use Carbon\Carbon;
 use GuzzleHttp\Client;
+use JsonException;
+use Monolog\Logger;
 
 /**
  * Class WallabagCollector
@@ -33,9 +36,9 @@ class WallabagCollector implements CollectorInterface
     private bool   $skipCache;
     private array  $configuration;
     private array  $collection;
-    private array  $folders;
     private string $cacheFile;
     private array  $token;
+    private Logger $logger;
 
     /**
      *
@@ -61,6 +64,7 @@ class WallabagCollector implements CollectorInterface
      */
     public function collect(bool $skipCache = false): void
     {
+        $this->logger->debug('WallabagCollector is going to collect.');
         $this->skipCache = $skipCache;
         $useCache        = true;
 
@@ -71,12 +75,14 @@ class WallabagCollector implements CollectorInterface
             $useCache = false;
         }
         if (false === $useCache) {
+            $this->logger->debug('WallabagCollector will not use the cache.');
             $this->getAccessToken();
             $this->makePublicArticles();
             $this->collectArchivedArticles();
             $this->saveToCache();
         }
         if (true === $useCache) {
+            $this->logger->debug('WallabagCollector will use the cache.');
             $this->collectCache();
         }
     }
@@ -87,14 +93,18 @@ class WallabagCollector implements CollectorInterface
     private function cacheOutOfDate(): bool
     {
         if (!file_exists($this->cacheFile)) {
+            $this->logger->debug('WallabagCollector found no cache file, so its out of date.');
             return true;
         }
         $content = file_get_contents($this->cacheFile);
         $json    = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
         // diff is over 12hrs
         if (time() - $json['moment'] > (12 * 60 * 60)) {
+            $this->logger->debug('WallabagCollector cache is outdated.');
             return true;
         }
+        $this->logger->debug('WallabagCollector cache is fresh!');
+
         return false;
     }
 
@@ -112,6 +122,7 @@ class WallabagCollector implements CollectorInterface
      */
     private function makePublicArticles(): void
     {
+        $this->logger->debug('WallabagCollector will make all archived articles public.');
         $client      = new Client;
         $page        = 1;
         $hasMore     = true;
@@ -123,14 +134,16 @@ class WallabagCollector implements CollectorInterface
         ];
 
         while (true === $hasMore) {
+            $this->logger->debug(sprintf('WallabagCollector is now working on page #%d.', $page));
             $url      = sprintf($articlesUrl, $this->configuration['host'], $page);
             $response = $client->get($url, $opts);
-            $body     = (string) $response->getBody();
+            $body     = (string)$response->getBody();
             $results  = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
 
-            //$log->addRecord($results['total'] > 0 ? 200 : 100, sprintf('Found %d new article(s).', $results['total']));
+            $this->logger->addRecord($results['total'] > 0 ? 200 : 100, sprintf('WallabagCollector found %d new article(s) to make public.', $results['total']));
 
             if ($results['pages'] <= $page) {
+                $this->logger->debug('WallabagCollector has no more pages to process.');
                 $hasMore = false;
             }
             // loop articles
@@ -146,11 +159,12 @@ class WallabagCollector implements CollectorInterface
                     ],
                 ];
                 $patchClient->patch($patchUrl, $patchOpts);
-                //$log->debug(sprintf('Make article #%d public..', $item['id']));
+                $this->logger->debug(sprintf('WallabagCollector made article #%d public.', $item['id']));
                 sleep(2);
             }
             $page++;
         }
+        $this->logger->debug('WallabagCollector is done making articles public.');
     }
 
     /**
@@ -158,6 +172,7 @@ class WallabagCollector implements CollectorInterface
      */
     private function getAccessToken(): void
     {
+        $this->logger->debug('WallabagCollector will now get an access token.');
         $client      = new Client;
         $opts        = [
             'form_params' => [
@@ -170,14 +185,100 @@ class WallabagCollector implements CollectorInterface
         ];
         $url         = sprintf('%s/oauth/v2/token', $this->configuration['host']);
         $response    = $client->post($url, $opts);
-        $body        = (string) $response->getBody();
+        $body        = (string)$response->getBody();
         $this->token = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
+        $this->logger->debug(sprintf('WallabagCollector has collected access token %s.', $this->token['access_token']));
     }
 
     /**
-     * 
+     *
      */
     private function collectArchivedArticles(): void
     {
+        $this->logger->debug('WallabagCollector will now collect public + archived articles.');
+        $client      = new Client;
+        $page        = 1;
+        $hasMore     = true;
+        $articles    = [];
+        $articlesUrl = '%s/api/entries.json?archive=1&sort=archived&perPage=50&page=%d&public=1&detail=metadata';
+        $opts        = [
+            'headers' => [
+                'Authorization' => sprintf('Bearer %s', $this->token['access_token']),
+            ],
+        ];
+
+        while (true === $hasMore) {
+            $this->logger->debug(sprintf('WallabagCollector is now working on page #%d.', $page));
+            $url      = sprintf($articlesUrl, $this->configuration['host'], $page);
+            $response = $client->get($url, $opts);
+            $body     = (string)$response->getBody();
+            $results  = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+
+            if (1 === $page) {
+                $this->logger->debug(sprintf('Found %d article(s) to share.', $results['total']));
+            }
+            $this->logger->debug(sprintf('Working on page %d of %d...', $page, $results['pages']));
+
+            if ($results['pages'] <= $page) {
+                // no more pages
+                $hasMore = false;
+                $this->logger->debug('WallabagCollector found the last page!');
+            }
+            // loop articles and save them:
+            foreach ($results['_embedded']['items'] as $item) {
+                $article = [
+                    'title'        => $item['title'],
+                    'original_url' => $item['url'],
+                    'archived_at'  => new Carbon($item['archived_at']),
+                    'created_at'   => new Carbon($item['created_at']),
+                    'wallabag_url' => sprintf('%s/share/%s', $this->configuration['host'], $item['uid']),
+                    'tags'         => [],
+                ];
+
+                foreach ($item['tags'] as $tag) {
+                    $article['tags'][] = $tag['label'];
+                }
+
+                $articles[] = $article;
+            }
+            sleep(2);
+            $page++;
+        }
+        $this->logger->debug('WallabagCollector is done collecting articles.');
+        $this->collection = $articles;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setLogger(Logger $logger): void
+    {
+        $this->logger = $logger;
+        $this->logger->debug('WallabagCollector has a logger!');
+
+    }
+
+    /**
+     *
+     */
+    private function saveToCache(): void
+    {
+        $content = [
+            'moment' => time(),
+            'data'   => $this->collection,
+        ];
+        $json    = json_encode($content, JSON_PRETTY_PRINT);
+        file_put_contents($this->cacheFile, $json);
+        $this->logger->debug('WallabagCollector has saved the results to the cache.');
+    }
+    /**
+     * @throws JsonException
+     */
+    private function collectCache(): void
+    {
+        $content          = file_get_contents($this->cacheFile);
+        $json             = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+        $this->collection = $json['data'];
+        $this->logger->debug('WallabagCollector has collected from the cache.');
     }
 }
