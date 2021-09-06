@@ -23,7 +23,7 @@
 
 declare(strict_types=1);
 
-use Carbon\Carbon;
+use App\Collector\BookmarkCollector;
 use GuzzleHttp\Client;
 
 require 'vendor/autoload.php';
@@ -40,64 +40,97 @@ $opts      = [
     ],
 ];
 
-$content = "public:: true\n\n- Publieke bookmarks van [[Sander Dorigo]], gegenereerd met een [handig tooltje](https://github.com/SDx3/sync-to-logseq).\n";
+$markdown = "public:: true\n\n- Publieke bookmarks van [[Sander Dorigo]], gegenereerd met een [handig tooltje](https://github.com/SDx3/sync-to-logseq).\n";
 
-// collect all bookmarks with their folder ID:
-$res   = $client->get(sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/bookmark?limit=250', $_ENV['NEXTCLOUD_HOST']), $opts);
-$data  = (string) $res->getBody();
-$body  = json_decode($data, true);
-$total = 0;
-if (isset($body['data'])) {
-    foreach ($body['data'] as $entry) {
-        $folderId               = $entry['folders'][0] ?? -1;
-        $bookmarks[$folderId][] = ['title' => $entry['title'], 'url' => $entry['url'], 'added' => new Carbon($entry['added'])];
-        $total++;
-    }
-}
-$log->debug(sprintf('Found %d bookmark(s).', $total));
+// collect bookmarks
+$configuration = [
+    'username' => $_ENV['NEXTCLOUD_USERNAME'],
+    'password' => $_ENV['NEXTCLOUD_PASS'],
+    'host'     => $_ENV['NEXTCLOUD_HOST'],
+];
+$collector     = new BookmarkCollector;
+$collector->setConfiguration($configuration);
+$collector->setLogger($log);
+$collector->collect(true);
+$bookmarks = $collector->getCollection();
 
-// get all folders, then get all bookmarks for that folder
-$res  = $client->get(sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/folder', $_ENV['NEXTCLOUD_HOST']), $opts);
-$data = (string) $res->getBody();
-$body = json_decode($data, true);
+uasort($bookmarks, function (array $a, array $b) {
+    return strcmp($a['title'], $b['title']);
+});
+$level          = 0;
+$expectedParent = 0;
+$markdown       = processFolders($markdown, $bookmarks, $level, $expectedParent);
 
-$content = processFolders($content, $bookmarks, $body['data'], 0);
-$log->debug('Processed all folders');
+echo $markdown;
 
-function processFolders(string $content, array $bookmarks, array $folders, int $level): string
+/**
+ * @param string $markdown
+ * @param array  $bookmarks
+ * @param int    $level
+ * @param int    $expectedParent
+ *
+ * @return string
+ */
+function processFolders(string $markdown, array $bookmarks, int $level, int $expectedParent): string
 {
-    /** @var array $folder */
-    foreach ($folders as $folder) {
-        $folderId = $folder['id'];
-        if ((isset($bookmarks[$folderId]) && count($bookmarks[$folderId]) > 0) || count($folder['children']) > 0) {
-            if ('' !== $folder['title']) {
-                $content .= str_repeat("\t", $level);
-                $content .= sprintf('- **%s**', $folder['title']);
-                $content .= "\n";
-                $set     = $bookmarks[$folderId] ?? [];
-                asort($set);
-                /** @var array $bookmark */
-                foreach ($set as $bookmark) {
-                    $host = parse_url($bookmark['url'], PHP_URL_HOST);
-                    if (str_starts_with($host, 'www.')) {
-                        $host = substr($host, 4);
-                    }
-                    $content .= str_repeat("\t", $level + 1);
-                    $content .= sprintf('- [%s](%s) (%s)', $bookmark['title'], $bookmark['url'], $host);
-                    $content .= "\n";
-                    // add time of addition:
-                    $content .= sprintf('  Gebookmarkt op %s', $bookmark['added']->formatLocalized('%A %e %B %Y'));
-                    $content .= "\n";
+    global $log;
+    $log->debug(sprintf('Now in processFolders, level %d and expected parent ID #%d.', $level, $expectedParent));
+    foreach ($bookmarks as $folderId => $folder) {
+        $parentId = getParentFolderId($bookmarks, $folder);
+        $log->debug(sprintf('Parent folder ID of folder "%s" is #%d.', $folder['title'], $parentId));
+        if ($parentId === $expectedParent) {
+            $log->debug(sprintf('Parent and expected parent are a match, add folder "%s" (ID #%d) to markdown.', $folder['title'], $folderId));
+
+            // add title:
+            $markdown .= str_repeat("\t", $level);
+            $markdown .= sprintf("- **%s**\n", $folder['title']);
+
+            // process subfolders
+            $nextLevel = $level + 1;
+            $markdown  = processFolders($markdown, $bookmarks, $nextLevel, $folderId);
+
+            // add bookmarks from THIS folder
+            foreach ($folder['bookmarks'] as $bookmark) {
+                $log->debug(sprintf('Will add bookmarks from folder "%s" (#%d) to markdown', $folder['title'], $folderId));
+                $markdown .= str_repeat("\t", $nextLevel);
+
+                $host = parse_url($bookmark['url'], PHP_URL_HOST);
+                if (str_starts_with($host, 'www.')) {
+                    $host = substr($host, 4);
                 }
+                $markdown .= sprintf("- [%s](%s) (%s)", $bookmark['title'], $bookmark['url'], $host);
+                $markdown .= "\n";
+
+                // add time of addition:
+                $markdown .= str_repeat("\t", $nextLevel);
+                $markdown .= sprintf("  Gebookmarkt op %s", str_replace('  ', ' ', $bookmark['added']->formatLocalized('%A %e %B %Y')));
+
+
+                $markdown .= "\n";
             }
         }
+    }
 
-        if (count($folder['children']) > 0) {
-            $content = processFolders($content, $bookmarks, $folder['children'], $level + 1);
+    return $markdown;
+}
+
+/**
+ * @param array $bookmarks
+ * @param array $folder
+ *
+ * @return int
+ */
+function getParentFolderId(array $bookmarks, array $folder): int
+{
+    foreach ($bookmarks as $parentId => $parent) {
+        if ($parentId === $folder['parent']) {
+            return $parentId;
         }
     }
 
-    return $content;
+    return 0;
+    //var_dump($folder);
+    //exit;
 }
 
 // now update (overwrite!) bookmarks file.
@@ -108,7 +141,7 @@ $opts   = [
     'headers' => [
         'Accept' => 'application/json',
     ],
-    'body'    => $content,
+    'body'    => $markdown,
 ];
 $log->debug(sprintf('Going to upload to %s', $url));
 $res = $client->put($url, $opts);
