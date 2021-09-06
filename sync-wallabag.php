@@ -21,6 +21,7 @@
  * SOFTWARE.
  */
 
+use App\Collector\WallabagCollector;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 
@@ -35,115 +36,28 @@ $markdown = "public:: true\n- Een overzicht van wat [[Sander Dorigo]] heeft gele
 
 $log->debug('Start of wallabag script.');
 
-// get an access token
-$client   = new Client;
-$opts     = [
-    'form_params' => [
-        'grant_type'    => 'password',
-        'client_id'     => $_ENV['CLIENT_ID'],
-        'client_secret' => $_ENV['CLIENT_SECRET'],
-        'username'      => $_ENV['USERNAME'],
-        'password'      => $_ENV['PASSWORD'],
-    ],
+// collect bookmarks
+$collector     = new WallabagCollector;
+$configuration = [
+    'client_id'     => $_ENV['WALLABAG_CLIENT_ID'],
+    'client_secret' => $_ENV['WALLABAG_CLIENT_SECRET'],
+    'username'      => $_ENV['WALLABAG_USERNAME'],
+    'password'      => $_ENV['WALLABAG_PASSWORD'],
+    'host'          => $_ENV['WALLABAG_HOST'],
 ];
-$url      = sprintf('%s/oauth/v2/token', $_ENV['WALLABAG_HOST']);
-$response = $client->post($url, $opts);
-$body     = (string) $response->getBody();
-$token    = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
-$log->debug(sprintf('Access token is %s.', $token['access_token']));
-
-// get all public articles until feed runs out.
-$client      = new Client;
-$page        = 1;
-$hasMore     = true;
-$articlesUrl = '%s/api/entries.json?archive=1&sort=archived&perPage=5&page=%d&public=0';
-$opts        = [
-    'headers' => [
-        'Authorization' => sprintf('Bearer %s', $token['access_token']),
-    ],
-];
-
-$log->debug('Collecting archived + not public.');
-while (true === $hasMore) {
-    $url      = sprintf($articlesUrl, $_ENV['WALLABAG_HOST'], $page);
-    $response = $client->get($url, $opts);
-    $body     = (string) $response->getBody();
-    $results  = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-
-    $log->addRecord($results['total'] > 0 ? 200 : 100, sprintf('Found %d new article(s).', $results['total']));
-
-    if ($results['pages'] <= $page) {
-        $hasMore = false;
-    }
-    // loop articles
-    foreach ($results['_embedded']['items'] as $item) {
-        $patchClient = new Client;
-        $patchUrl    = sprintf('%s/api/entries/%d.json', $_ENV['WALLABAG_HOST'], $item['id']);
-        $patchOpts   = [
-            'headers'     => [
-                'Authorization' => sprintf('Bearer %s', $token['access_token']),
-            ],
-            'form_params' => [
-                'public' => 1,
-            ],
-        ];
-        $patchRes    = $patchClient->patch($patchUrl, $patchOpts);
-        $log->debug(sprintf('Make article #%d public..', $item['id']));
-        sleep(2);
-    }
-    $page++;
-}
-
-// get all public + archived articles until feed runs out:
-$client      = new Client;
-$page        = 1;
-$hasMore     = true;
-$articlesUrl = '%s/api/entries.json?archive=1&sort=archived&perPage=5&page=%d&public=1&detail=metadata';
-$opts        = [
-    'headers' => [
-        'Authorization' => sprintf('Bearer %s', $token['access_token']),
-    ],
-];
-
-while (true === $hasMore) {
-    $url      = sprintf($articlesUrl, $_ENV['WALLABAG_HOST'], $page);
-    $response = $client->get($url, $opts);
-    $body     = (string) $response->getBody();
-    $results  = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-
-    if (1 === $page) {
-        $log->debug(sprintf('Found %d article(s) to share.', $results['total']));
-    }
-    $log->debug(sprintf('Working on page %d of %d...', $page, $results['pages']));
-
-    if ($results['pages'] <= $page) {
-        // no more pages
-        $hasMore = false;
-    }
-    // loop articles and save them:
-    foreach ($results['_embedded']['items'] as $item) {
-        $article = [
-            'title'        => $item['title'],
-            'original_url' => $item['url'],
-            'archived_at'  => new Carbon($item['archived_at']),
-            'created_at'  => new Carbon($item['created_at']),
-            'wallabag_url' => sprintf('%s/share/%s', $_ENV['WALLABAG_HOST'], $item['uid']),
-            'tags'         => [],
-        ];
-
-        foreach ($item['tags'] as $tag) {
-            $article['tags'][] = $tag['label'];
-        }
-
-        $articles[] = $article;
-    }
-    sleep(2);
-    $page++;
-}
-
+$collector->setConfiguration($configuration);
+$collector->setLogger($log);
+$collector->collect();
+$articles = $collector->getCollection();
 
 /** @var array $article */
 foreach ($articles as $article) {
+    if(is_string($article['archived_at'])) {
+        $article['archived_at'] = new Carbon($article['archived_at'], 'Europe/Amsterdam');
+    }
+    if(is_string($article['created_at'])) {
+        $article['created_at'] = new Carbon($article['created_at'], 'Europe/Amsterdam');
+    }
     $single = sprintf("- **[%s](%s)**\n", $article['title'], $article['wallabag_url']);
 
     if (count($article['tags']) > 0) {
@@ -153,8 +67,8 @@ foreach ($articles as $article) {
     if (str_starts_with($host, 'www.')) {
         $host = substr($host, 4);
     }
-    $single   .= sprintf('  - Gelezen en gearchiveerd op %s', $article['archived_at']->formatLocalized('%A %e %B %Y')) . "\n";
-    $single   .= sprintf('  - Oorspronkelijk opgeslagen op %s', $article['created_at']->formatLocalized('%A %e %B %Y')) . "\n";
+    $single   .= sprintf('  - Gelezen en gearchiveerd op %s', str_replace('  ', ' ',$article['archived_at']->formatLocalized('%A %e %B %Y'))) . "\n";
+    $single   .= sprintf('  - Oorspronkelijk opgeslagen op %s', str_replace('  ', ' ',$article['created_at']->formatLocalized('%A %e %B %Y'))) . "\n";
     $single   .= sprintf('  - (origineel artikel op [%s](%s))', $host, $article['original_url']) . "\n";
     $markdown .= $single;
 }
@@ -170,5 +84,8 @@ $opts   = [
     'body'    => $markdown,
 ];
 $log->debug(sprintf('Going to upload to %s', $url));
-$res    = $client->put($url, $opts);
+//$res    = $client->put($url, $opts);
 $log->debug('Done!');
+
+echo "\n\n";
+echo $markdown;
