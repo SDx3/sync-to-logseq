@@ -34,6 +34,7 @@ declare(strict_types=1);
 // bookmarks:
 use App\Collector\BookmarkCollector;
 use App\Collector\WallabagCollector;
+use Carbon\Carbon;
 
 require 'vendor/autoload.php';
 require 'init.php';
@@ -46,6 +47,7 @@ $configuration = [
 ];
 $collector     = new BookmarkCollector;
 $collector->setConfiguration($configuration);
+$collector->setLogger($log);
 $collector->collect();
 $bookmarks = $collector->getCollection();
 
@@ -53,12 +55,99 @@ $bookmarks = $collector->getCollection();
 
 $collector     = new WallabagCollector;
 $configuration = [
-    'client_id'     => $_ENV['CLIENT_ID'],
-    'client_secret' => $_ENV['CLIENT_SECRET'],
-    'username'      => $_ENV['USERNAME'],
-    'password'      => $_ENV['PASSWORD'],
+    'client_id'     => $_ENV['WALLABAG_CLIENT_ID'],
+    'client_secret' => $_ENV['WALLABAG_CLIENT_SECRET'],
+    'username'      => $_ENV['WALLABAG_USERNAME'],
+    'password'      => $_ENV['WALLABAG_PASSWORD'],
     'host'          => $_ENV['WALLABAG_HOST'],
 ];
 $collector->setConfiguration($configuration);
+$collector->setLogger($log);
 $collector->collect();
-$wallabag = $collector->getCollection();
+$articles = $collector->getCollection();
+
+$dates = [];
+
+// loop and add to array
+
+/** @var array $folder */
+foreach ($bookmarks as $folder) {
+    /** @var array $bookmark */
+    foreach ($folder['bookmarks'] as $bookmark) {
+        if (is_string($bookmark['added'])) {
+            $bookmark['added'] = new Carbon($bookmark['added'], 'Europe/Amsterdam');
+        }
+        $bookmark['folder']              = $folder['title'];
+        $dateString                      = (string)$bookmark['added']->format('Ymd');
+        $timeString                      = $bookmark['added']->format('His');
+        $dates[$dateString]              = array_key_exists($dateString, $dates) ? $dates[$dateString] : [];
+        $dates[$dateString][$timeString] = array_key_exists($timeString, $dates[$dateString]) ? $dates[$dateString][$timeString] : [];
+        // add bookmark to this array verbatim:
+        $dates[$dateString][$timeString][] = [
+            'type' => 'bookmark',
+            'data' => $bookmark,
+        ];
+
+    }
+}
+/** @var array $article */
+foreach ($articles as $article) {
+    if (is_string($article['archived_at'])) {
+        $article['archived_at'] = new Carbon($article['archived_at'], 'Europe/Amsterdam');
+    }
+    $dateString                      = (string)$article['archived_at']->format('Ymd');
+    $timeString                      = $article['archived_at']->format('His');
+    $dates[$dateString]              = array_key_exists($dateString, $dates) ? $dates[$dateString] : [];
+    $dates[$dateString][$timeString] = array_key_exists($timeString, $dates[$dateString]) ? $dates[$dateString][$timeString] : [];
+    // add article to this array verbatim:
+    $dates[$dateString][$timeString][] = [
+        'type' => 'article',
+        'data' => $article,
+    ];
+}
+// sort by date
+krsort($dates, SORT_STRING);
+
+// loop to generate MD file.
+$markdown = "public:: true\n";
+foreach ($dates as $date => $content) {
+    krsort($content);
+    $dateObject = Carbon::createFromFormat('Ymd', $date, 'Europe/Amsterdam');
+    $markdown   .= sprintf("- %s\n  heading:: true\n", str_replace('  ', ' ', $dateObject->formatLocalized('%A %e %B %Y')));
+    // all entries for this date slot:
+    foreach ($content as $timeSlot => $entries) {
+        // each entry for this timeslot
+        foreach ($entries as $entry) {
+            switch ($entry['type']) {
+                default:
+                    die(sprintf('Script cannot handle type "%s"', $entry['type']));
+                case 'bookmark':
+                    $host = parse_url($entry['data']['url'], PHP_URL_HOST);
+                    if (str_starts_with($host, 'www.')) {
+                        $host = substr($host, 4);
+                    }
+                    $sentence = sprintf("    - Nieuwe bookmark: [%s](%s) (%s)\n", $entry['data']['title'], $entry['data']['url'], $host);
+                    $markdown .= $sentence;
+                    break;
+                case 'article':
+                    $host = parse_url($entry['data']['original_url'], PHP_URL_HOST);
+                    if (str_starts_with($host, 'www.')) {
+                        $host = substr($host, 4);
+                    }
+
+                    $sentence = sprintf("    - Artikel gelezen: [%s](%s)\n", $entry['data']['title'], $entry['data']['wallabag_url']);
+                    $sentence .= sprintf("      Origineel artikel op [%s](%s)\n", $host, $entry['data']['original_url']);
+
+                    $markdown .= $sentence;
+                    //                    var_dump($article);
+                    //                    exit;
+                    break;
+            }
+        }
+    }
+    //var_dump(array_keys($content));
+    //exit;
+}
+file_put_contents('Stream.md', $markdown);
+//echo "\n\n";
+//echo $markdown;
