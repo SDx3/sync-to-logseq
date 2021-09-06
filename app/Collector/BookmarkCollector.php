@@ -26,6 +26,7 @@ namespace App\Collector;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 use JsonException;
+use Monolog\Logger;
 
 /**
  * Class BookmarkCollector
@@ -37,6 +38,7 @@ class BookmarkCollector implements CollectorInterface
     private array  $collection;
     private array  $folders;
     private string $cacheFile;
+    private Logger $logger;
 
     /**
      *
@@ -62,6 +64,7 @@ class BookmarkCollector implements CollectorInterface
      */
     public function collect(bool $skipCache = false): void
     {
+        $this->logger->debug('BookmarkCollector will collect.');
         $this->skipCache = $skipCache;
         $useCache        = true;
 
@@ -72,14 +75,17 @@ class BookmarkCollector implements CollectorInterface
             $useCache = false;
         }
         if (false === $useCache) {
+            $this->logger->debug('BookmarkCollector will not use the cache.');
             $this->collectBookmarks();
             $this->collectFolders();
             $this->mergeCollection();
             $this->saveToCache();
         }
         if (true === $useCache) {
+            $this->logger->debug('BookmarkCollector will use the cache.');
             $this->collectCache();
         }
+        $this->logger->debug('BookmarkCollector is done.');
     }
 
     /**
@@ -95,15 +101,19 @@ class BookmarkCollector implements CollectorInterface
      */
     private function cacheOutOfDate(): bool
     {
-        if(!file_exists($this->cacheFile)) {
+        if (!file_exists($this->cacheFile)) {
+            $this->logger->debug('BookmarkCollector cache file does not exist.');
             return true;
         }
         $content = file_get_contents($this->cacheFile);
         $json    = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
         // diff is over 12hrs
         if (time() - $json['moment'] > (12 * 60 * 60)) {
+            $this->logger->debug('BookmarkCollector cache is out of date.');
             return true;
         }
+        $this->logger->debug('BookmarkCollector cache is fresh.');
+
         return false;
     }
 
@@ -113,6 +123,7 @@ class BookmarkCollector implements CollectorInterface
      */
     private function collectBookmarks(): void
     {
+        $this->logger->debug('BookmarkCollector will collect fresh bookmarks.');
         $client = new Client;
         $opts   = [
             'auth'    => [$this->configuration['username'], $this->configuration['password']],
@@ -124,14 +135,18 @@ class BookmarkCollector implements CollectorInterface
         $hasMore = true;
         $page    = 0;
         while (true === $hasMore) {
-            $res  = $client->get(sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/bookmark?limit=100&page=%d', $this->configuration['host'], $page), $opts);
-            $data = (string) $res->getBody();
+            $this->logger->debug(sprintf('BookmarkCollector is working on page #%d.', $page));
+            $res  = $client->get(
+                sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/bookmark?limit=100&page=%d', $this->configuration['host'], $page), $opts
+            );
+            $data = (string)$res->getBody();
             $body = json_decode($data, true, 128, JSON_THROW_ON_ERROR);
             if (isset($body['data'])) {
                 if (0 === count($body['data'])) {
+                    $this->logger->debug('BookmarkCollector found no bookmarks on this page, and will stop.');
                     $hasMore = false;
                 }
-
+                $this->logger->debug(sprintf('BookmarkCollector found %d bookmarks.', count($body['data'])));
                 foreach ($body['data'] as $entry) {
                     $folderId = $entry['folders'][0] ?? -1;
 
@@ -148,10 +163,12 @@ class BookmarkCollector implements CollectorInterface
                 }
             }
             if (!isset($body['data'])) {
+                $this->logger->debug('BookmarkCollector result has no body, so no more bookmarks.');
                 $hasMore = false;
             }
             $page++;
         }
+        $this->logger->debug('BookmarkCollector is done collecting bookmarks.');
     }
 
     /**
@@ -159,6 +176,7 @@ class BookmarkCollector implements CollectorInterface
      */
     private function saveToCache(): void
     {
+        $this->logger->debug('BookmarkCollector has saved the collection to cache.');
         $content = [
             'moment' => time(),
             'data'   => $this->collection,
@@ -179,12 +197,13 @@ class BookmarkCollector implements CollectorInterface
                 'Accept' => 'application/json',
             ],
         ];
-
+        $this->logger->debug('BookmarkCollector is collecting folders.');
         // get all folders, then get all bookmarks for that folder
         $res  = $client->get(sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/folder', $this->configuration['host']), $opts);
-        $data = (string) $res->getBody();
+        $data = (string)$res->getBody();
         $body = json_decode($data, true);
         $this->parseFolderNames($body['data']);
+        $this->logger->debug('BookmarkCollector is done collecting folders.');
     }
 
     /**
@@ -219,12 +238,26 @@ class BookmarkCollector implements CollectorInterface
                 $this->collection[$folderId]['title'] = $this->folders[$folderId]['title'];
             }
         }
+        $this->logger->debug('BookmarkCollector has merged folders + bookmarks.');
     }
 
+    /**
+     * @throws JsonException
+     */
     private function collectCache(): void
     {
         $content          = file_get_contents($this->cacheFile);
         $json             = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
         $this->collection = $json['data'];
+        $this->logger->debug('BookmarkCollector has collected bookmarks from the cache.');
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setLogger(Logger $logger): void
+    {
+        $this->logger = $logger;
+        $this->logger->debug('BookmarkCollector has a logger!');
     }
 }
