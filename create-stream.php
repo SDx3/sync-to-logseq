@@ -107,6 +107,7 @@ foreach ($articles as $article) {
 }
 // sort by date
 krsort($dates, SORT_STRING);
+$log->debug(sprintf('Collected all bookmarks and articles, grouped in %d specific date(s).', count(array_keys($dates))));
 
 // loop to generate MD file.
 $markdown = "public:: true\n";
@@ -145,9 +146,6 @@ foreach ($dates as $date => $content) {
             }
         }
     }
-    //var_dump(array_keys($content));
-    //exit;
 }
+// temp
 file_put_contents('Stream.md', $markdown);
-//echo "\n\n";
-//echo $markdown;
