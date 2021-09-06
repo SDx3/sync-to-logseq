@@ -103,6 +103,7 @@ class BookmarkCollector implements CollectorInterface
     {
         if (!file_exists($this->cacheFile)) {
             $this->logger->debug('BookmarkCollector cache file does not exist.');
+
             return true;
         }
         $content = file_get_contents($this->cacheFile);
@@ -110,6 +111,7 @@ class BookmarkCollector implements CollectorInterface
         // diff is over 12hrs
         if (time() - $json['moment'] > (12 * 60 * 60)) {
             $this->logger->debug('BookmarkCollector cache is out of date.');
+
             return true;
         }
         $this->logger->debug('BookmarkCollector cache is fresh.');
@@ -218,7 +220,8 @@ class BookmarkCollector implements CollectorInterface
             $folderTitle = 0 === strlen($folderTitle) ? '(no title)' : $folderTitle;
 
             $this->folders[$folderId] = [
-                'title' => $folderTitle,
+                'title'  => $folderTitle,
+                'parent' => $folder['parent_folder'],
             ];
 
             if (count($folder['children']) > 0) {
@@ -236,6 +239,7 @@ class BookmarkCollector implements CollectorInterface
         foreach ($this->collection as $folderId => $info) {
             if (isset($this->folders[$folderId])) {
                 $this->collection[$folderId]['title'] = $this->folders[$folderId]['title'];
+                $this->collection[$folderId]['parent'] = $this->folders[$folderId]['parent'];
             }
         }
         $this->logger->debug('BookmarkCollector has merged folders + bookmarks.');
