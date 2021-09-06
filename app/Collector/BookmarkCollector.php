@@ -95,6 +95,9 @@ class BookmarkCollector implements CollectorInterface
      */
     private function cacheOutOfDate(): bool
     {
+        if(!file_exists($this->cacheFile)) {
+            return true;
+        }
         $content = file_get_contents($this->cacheFile);
         $json    = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
         // diff is over 12hrs

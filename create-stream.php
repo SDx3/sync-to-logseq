@@ -27,21 +27,38 @@ declare(strict_types=1);
 // - bookmarks
 // - wallabag
 // - tumblr likes
+// - twitter bookmarks
+// - published from RSS
 // and sorting them by date and time in a new markdown file.
 
 // bookmarks:
 use App\Collector\BookmarkCollector;
+use App\Collector\WallabagCollector;
+
 require 'vendor/autoload.php';
 require 'init.php';
 
-// collect bookmarks from cache:
-
+// collect bookmarks
 $configuration = [
     'username' => $_ENV['NEXTCLOUD_USERNAME'],
     'password' => $_ENV['NEXTCLOUD_PASS'],
-    'host' => $_ENV['NEXTCLOUD_HOST'],
+    'host'     => $_ENV['NEXTCLOUD_HOST'],
 ];
-$collector = new BookmarkCollector;
+$collector     = new BookmarkCollector;
 $collector->setConfiguration($configuration);
 $collector->collect();
 $bookmarks = $collector->getCollection();
+
+// collect wallabag
+
+$collector     = new WallabagCollector;
+$configuration = [
+    'client_id'     => $_ENV['CLIENT_ID'],
+    'client_secret' => $_ENV['CLIENT_SECRET'],
+    'username'      => $_ENV['USERNAME'],
+    'password'      => $_ENV['PASSWORD'],
+    'host'          => $_ENV['WALLABAG_HOST'],
+];
+$collector->setConfiguration($configuration);
+$collector->collect();
+$wallabag = $collector->getCollection();
