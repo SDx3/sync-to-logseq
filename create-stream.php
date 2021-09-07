@@ -39,6 +39,8 @@ use Carbon\Carbon;
 require 'vendor/autoload.php';
 require 'init.php';
 
+$log->debug('Now creating a thought stream yay');
+
 // collect bookmarks
 $configuration = [
     'username' => $_ENV['NEXTCLOUD_USERNAME'],
@@ -52,7 +54,6 @@ $collector->collect();
 $bookmarks = $collector->getCollection();
 
 // collect wallabag
-
 $collector     = new WallabagCollector;
 $configuration = [
     'client_id'     => $_ENV['WALLABAG_CLIENT_ID'],
@@ -69,6 +70,7 @@ $articles = $collector->getCollection();
 $dates = [];
 
 // loop and add to array
+$log->debug('Now looping bookmarks.');
 
 /** @var array $folder */
 foreach ($bookmarks as $folder) {
@@ -90,6 +92,8 @@ foreach ($bookmarks as $folder) {
 
     }
 }
+$log->debug('Now looping articles.');
+
 /** @var array $article */
 foreach ($articles as $article) {
     if (is_string($article['archived_at'])) {
@@ -127,7 +131,7 @@ foreach ($dates as $date => $content) {
                     if (str_starts_with($host, 'www.')) {
                         $host = substr($host, 4);
                     }
-                    $sentence = sprintf("    - Nieuwe bookmark: [%s](%s) (%s)\n", $entry['data']['title'], $entry['data']['url'], $host);
+                    $sentence = sprintf("    - ⭐ [%s](%s) (%s)\n", $entry['data']['title'], $entry['data']['url'], $host);
                     $markdown .= $sentence;
                     break;
                 case 'article':
@@ -136,7 +140,7 @@ foreach ($dates as $date => $content) {
                         $host = substr($host, 4);
                     }
 
-                    $sentence = sprintf("    - Artikel gelezen: [%s](%s)\n", $entry['data']['title'], $entry['data']['wallabag_url']);
+                    $sentence = sprintf("    - 📰 [%s](%s)\n", $entry['data']['title'], $entry['data']['wallabag_url']);
                     $sentence .= sprintf("      Origineel artikel op [%s](%s)\n", $host, $entry['data']['original_url']);
 
                     $markdown .= $sentence;
