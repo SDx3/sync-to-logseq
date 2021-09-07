@@ -86,6 +86,3 @@ $opts   = [
 $log->debug(sprintf('Going to upload to %s', $url));
 $res    = $client->put($url, $opts);
 $log->debug('Done!');
-
-echo "\n\n";
-echo $markdown;
