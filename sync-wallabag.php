@@ -32,7 +32,7 @@ require 'init.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
-$markdown = "---\npublic: true\ntitle: Articles 📰\n---\n\n- Een overzicht van wat [[Sander Dorigo]] heeft gelezen met [Wallabag](https://github.com/wallabag/wallabag). Dit moet nog handiger ingedeeld worden maar voor nu is het even goed zo.\n";
+$markdown = "---\npublic: true\n---\n\n- Een overzicht van wat [[Sander Dorigo]] heeft 📰 gelezen 📰 met [Wallabag](https://github.com/wallabag/wallabag). Dit moet nog handiger ingedeeld worden maar voor nu is het even goed zo.\n";
 
 $log->debug('Start of wallabag script.');
 
