@@ -32,7 +32,9 @@ require 'init.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
-$markdown = "---\npublic: true\n---\n\n- Een overzicht van wat [[Sander Dorigo]] heeft 📰 gelezen 📰 met [Wallabag](https://github.com/wallabag/wallabag). Dit moet nog handiger ingedeeld worden maar voor nu is het even goed zo.\n";
+$markdown = "---\npublic: true\n---\n\n- Dit is een overzicht van alles dat [ik]([[Sander Dorigo]]) online heb 📰 gelezen 📰, en opgeslagen heb in [Wallabag](https://github.com/wallabag/wallabag).\n";
+$markdown .= "- Deze lijst is gesorteerd op tijd (laatst gelezen eerst)\n";
+$markdown .= "- Dit moet nog handiger ingedeeld worden maar voor nu is het even goed zo.\n";
 
 $log->debug('Start of wallabag script.');
 
@@ -52,10 +54,10 @@ $articles = $collector->getCollection();
 
 /** @var array $article */
 foreach ($articles as $article) {
-    if(is_string($article['archived_at'])) {
+    if (is_string($article['archived_at'])) {
         $article['archived_at'] = new Carbon($article['archived_at'], 'Europe/Amsterdam');
     }
-    if(is_string($article['created_at'])) {
+    if (is_string($article['created_at'])) {
         $article['created_at'] = new Carbon($article['created_at'], 'Europe/Amsterdam');
     }
     $single = sprintf("- **[%s](%s)**\n", $article['title'], $article['wallabag_url']);
@@ -67,15 +69,15 @@ foreach ($articles as $article) {
     if (str_starts_with($host, 'www.')) {
         $host = substr($host, 4);
     }
-    $single   .= sprintf('  - Gelezen en gearchiveerd op %s', str_replace('  ', ' ',$article['archived_at']->formatLocalized('%A %e %B %Y'))) . "\n";
-    $single   .= sprintf('  - Oorspronkelijk opgeslagen op %s', str_replace('  ', ' ',$article['created_at']->formatLocalized('%A %e %B %Y'))) . "\n";
+    $single   .= sprintf('  - Gelezen en gearchiveerd op %s', str_replace('  ', ' ', $article['archived_at']->formatLocalized('%A %e %B %Y'))) . "\n";
+    $single   .= sprintf('  - Oorspronkelijk opgeslagen op %s', str_replace('  ', ' ', $article['created_at']->formatLocalized('%A %e %B %Y'))) . "\n";
     $single   .= sprintf('  - (origineel artikel op [%s](%s))', $host, $article['original_url']) . "\n";
     $markdown .= $single;
 }
 //file_put_contents('Artikelen en leesvoer.md', $markdown);
 // now update (overwrite!) bookmarks file.
 $client = new Client;
-$url = sprintf('https://%s/remote.php/dav/files/%s/%s/Artikelen en leesvoer.md', $_ENV['NEXTCLOUD_HOST'], $_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_LOGSEQ_PATH']);
+$url    = sprintf('https://%s/remote.php/dav/files/%s/%s/Artikelen en leesvoer.md', $_ENV['NEXTCLOUD_HOST'], $_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_LOGSEQ_PATH']);
 $opts   = [
     'auth'    => [$_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_PASS']],
     'headers' => [
@@ -84,5 +86,5 @@ $opts   = [
     'body'    => $markdown,
 ];
 $log->debug(sprintf('Going to upload to %s', $url));
-$res    = $client->put($url, $opts);
+$res = $client->put($url, $opts);
 $log->debug('Done!');
