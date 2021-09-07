@@ -35,6 +35,7 @@ declare(strict_types=1);
 use App\Collector\BookmarkCollector;
 use App\Collector\WallabagCollector;
 use Carbon\Carbon;
+use GuzzleHttp\Client;
 
 require 'vendor/autoload.php';
 require 'init.php';
