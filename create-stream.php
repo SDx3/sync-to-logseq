@@ -152,4 +152,16 @@ foreach ($dates as $date => $content) {
     }
 }
 // temp
-file_put_contents('Stream.md', $markdown);
+// now update (overwrite!) bookmarks file.
+$client = new Client;
+$url    = sprintf('https://%s/remote.php/dav/files/%s/%s/Stream.md', $_ENV['NEXTCLOUD_HOST'], $_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_LOGSEQ_PATH']);
+$opts   = [
+    'auth'    => [$_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_PASS']],
+    'headers' => [
+        'Accept' => 'application/json',
+    ],
+    'body'    => $markdown,
+];
+$log->debug(sprintf('Going to upload to %s', $url));
+$res = $client->put($url, $opts);
+$log->debug('Done!');
