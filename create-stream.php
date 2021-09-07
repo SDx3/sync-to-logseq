@@ -42,6 +42,13 @@ require 'init.php';
 
 $log->debug('Now creating a thought stream yay');
 
+
+$markdown = "public:: true\n";
+$markdown .= "- Het idee van een 'stream of consciousness' is dat je (met mate) deelt wat je online leest en bookmarkt en weet-ik-veel.\n";
+$markdown .= "- Best een leuk idee, en deze pagina is [mijn]([[Sander Dorigo]]) poging om zoiets te bouwen.\n";
+$markdown .= "- Voorlopig bestaat deze stream alleen uit mijn [[Bookmarks]] en [[Articles]], maar wie weet wat er nog volgt!\n";
+
+
 // collect bookmarks
 $configuration = [
     'username' => $_ENV['NEXTCLOUD_USERNAME'],
@@ -115,7 +122,6 @@ krsort($dates, SORT_STRING);
 $log->debug(sprintf('Collected all bookmarks and articles, grouped in %d specific date(s).', count(array_keys($dates))));
 
 // loop to generate MD file.
-$markdown = "public:: true\n";
 foreach ($dates as $date => $content) {
     krsort($content);
     $dateObject = Carbon::createFromFormat('Ymd', $date, 'Europe/Amsterdam');
