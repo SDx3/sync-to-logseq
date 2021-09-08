@@ -33,8 +33,8 @@ $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
 $markdown = "---\npublic: true\n---\n\n- Dit is een overzicht van alles dat [ik]([[Sander Dorigo]]) online heb 📰 gelezen 📰, en opgeslagen heb in [Wallabag](https://github.com/wallabag/wallabag).\n";
-$markdown .= "- Deze lijst is gesorteerd op tijd (laatst gelezen eerst)\n";
-$markdown .= "- Dit moet nog handiger ingedeeld worden maar voor nu is het even goed zo.\n";
+$markdown .= "  - Deze lijst is gesorteerd op tijd (laatst gelezen eerst)\n";
+$markdown .= "  - Dit moet nog handiger ingedeeld worden maar voor nu is het even goed zo.\n";
 
 $log->debug('Start of wallabag script.');
 
@@ -54,27 +54,49 @@ $articles = $collector->getCollection();
 
 /** @var array $article */
 foreach ($articles as $article) {
+    $single = '';
+
+    // parse original host name
+    $host = parse_url($article['original_url'], PHP_URL_HOST);
+    if (str_starts_with($host, 'www.')) {
+        $host = substr($host, 4);
+    }
+
+    // make Carbon objects:
     if (is_string($article['archived_at'])) {
         $article['archived_at'] = new Carbon($article['archived_at'], 'Europe/Amsterdam');
     }
     if (is_string($article['created_at'])) {
         $article['created_at'] = new Carbon($article['created_at'], 'Europe/Amsterdam');
     }
-    $single = sprintf("- **[%s](%s)**\n", $article['title'], $article['wallabag_url']);
 
+    // add link to article:
+    $single .= sprintf("- **[%s](%s)**\n", $article['title'], $article['wallabag_url']);
+    $single .= sprintf('  (origineel op [%s](%s))', $host, $article['original_url']) . "\n";
+
+    // add tags if present:
     if (count($article['tags']) > 0) {
         $single .= '  tags:: ' . join(', ', $article['tags']) . "\n";
     }
-    $host = parse_url($article['original_url'], PHP_URL_HOST);
-    if (str_starts_with($host, 'www.')) {
-        $host = substr($host, 4);
+
+    // add "archived on"
+    $single .= sprintf('  - Gelezen op %s', str_replace('  ', ' ', $article['archived_at']->formatLocalized('%A %e %B %Y'))) . "\n";
+
+    // add "saved on" (currently disabled):
+    //$single   .= sprintf('  - Oorspronkelijk opgeslagen op %s', str_replace('  ', ' ', $article['created_at']->formatLocalized('%A %e %B %Y'))) . "\n";
+
+    // add annotations (if present)
+    if(count($article['annotations']) > 0) {
+        $single .= "  - Opmerkingen\n";
+        foreach($article['annotations'] as $annotation) {
+            $single .= sprintf("    - > %s\n      %s\n", $annotation['quote'], $annotation['text']);
+        }
     }
-    $single   .= sprintf('  - Gelezen en gearchiveerd op %s', str_replace('  ', ' ', $article['archived_at']->formatLocalized('%A %e %B %Y'))) . "\n";
-    $single   .= sprintf('  - Oorspronkelijk opgeslagen op %s', str_replace('  ', ' ', $article['created_at']->formatLocalized('%A %e %B %Y'))) . "\n";
-    $single   .= sprintf('  - (origineel artikel op [%s](%s))', $host, $article['original_url']) . "\n";
+
+
     $markdown .= $single;
 }
-//file_put_contents('Artikelen en leesvoer.md', $markdown);
+
 // now update (overwrite!) bookmarks file.
 $client = new Client;
 $url    = sprintf('https://%s/remote.php/dav/files/%s/%s/Artikelen en leesvoer.md', $_ENV['NEXTCLOUD_HOST'], $_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_LOGSEQ_PATH']);

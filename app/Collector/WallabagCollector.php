@@ -137,7 +137,7 @@ class WallabagCollector implements CollectorInterface
             $this->logger->debug(sprintf('WallabagCollector is now working on page #%d.', $page));
             $url      = sprintf($articlesUrl, $this->configuration['host'], $page);
             $response = $client->get($url, $opts);
-            $body     = (string)$response->getBody();
+            $body     = (string) $response->getBody();
             $results  = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
 
             $this->logger->addRecord($results['total'] > 0 ? 200 : 100, sprintf('WallabagCollector found %d new article(s) to make public.', $results['total']));
@@ -185,7 +185,7 @@ class WallabagCollector implements CollectorInterface
         ];
         $url         = sprintf('%s/oauth/v2/token', $this->configuration['host']);
         $response    = $client->post($url, $opts);
-        $body        = (string)$response->getBody();
+        $body        = (string) $response->getBody();
         $this->token = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
         $this->logger->debug(sprintf('WallabagCollector has collected access token %s.', $this->token['access_token']));
     }
@@ -211,7 +211,7 @@ class WallabagCollector implements CollectorInterface
             $this->logger->debug(sprintf('WallabagCollector is now working on page #%d.', $page));
             $url      = sprintf($articlesUrl, $this->configuration['host'], $page);
             $response = $client->get($url, $opts);
-            $body     = (string)$response->getBody();
+            $body     = (string) $response->getBody();
             $results  = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
 
             if (1 === $page) {
@@ -226,20 +226,7 @@ class WallabagCollector implements CollectorInterface
             }
             // loop articles and save them:
             foreach ($results['_embedded']['items'] as $item) {
-                $article = [
-                    'title'        => $item['title'],
-                    'original_url' => $item['url'],
-                    'archived_at'  => new Carbon($item['archived_at']),
-                    'created_at'   => new Carbon($item['created_at']),
-                    'wallabag_url' => sprintf('%s/share/%s', $this->configuration['host'], $item['uid']),
-                    'tags'         => [],
-                ];
-
-                foreach ($item['tags'] as $tag) {
-                    $article['tags'][] = $tag['label'];
-                }
-
-                $articles[] = $article;
+                $articles[] = $this->processArticle($item);
             }
             sleep(2);
             $page++;
@@ -247,6 +234,39 @@ class WallabagCollector implements CollectorInterface
         $this->logger->debug('WallabagCollector is done collecting articles.');
         $this->collection = $articles;
     }
+
+    /**
+     * @param array $item
+     * @return array
+     */
+    private function processArticle(array $item): array
+    {
+
+        $article = [
+            'title'        => $item['title'],
+            'original_url' => $item['url'],
+            'archived_at'  => new Carbon($item['archived_at']),
+            'created_at'   => new Carbon($item['created_at']),
+            'wallabag_url' => sprintf('%s/share/%s', $this->configuration['host'], $item['uid']),
+            'tags'         => [],
+            'annotations'  => [],
+        ];
+
+        /** @var array $tag */
+        foreach ($item['tags'] as $tag) {
+            $article['tags'][] = $tag['label'];
+        }
+        /** @var array $annotation */
+        foreach ($item['annotations'] as $annotation) {
+            $article['annotations'][] = [
+                'quote' => $annotation['quote'],
+                'text'  => $annotation['text'],
+            ];
+        }
+
+        return $article;
+    }
+
 
     /**
      * @inheritDoc
@@ -271,6 +291,7 @@ class WallabagCollector implements CollectorInterface
         file_put_contents($this->cacheFile, $json);
         $this->logger->debug('WallabagCollector has saved the results to the cache.');
     }
+
     /**
      * @throws JsonException
      */

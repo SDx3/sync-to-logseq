@@ -42,7 +42,7 @@ $opts      = [
 ];
 
 $markdown = "---\npublic: true\n---\n\n- Dit zijn al [mijn]([[Sander Dorigo]]) (publieke) ⭐ bookmarks ⭐.\n";
-$markdown .= "- Deze lijst is gegenereerd met een [handig tooltje](https://github.com/SDx3/sync-to-logseq).\n";
+$markdown .= "  - Deze lijst is gegenereerd met een [handig tooltje](https://github.com/SDx3/sync-to-logseq).\n";
 
 // collect bookmarks
 $configuration = [

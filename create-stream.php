@@ -88,7 +88,7 @@ foreach ($bookmarks as $folder) {
             $bookmark['added'] = new Carbon($bookmark['added'], 'Europe/Amsterdam');
         }
         $bookmark['folder']              = $folder['title'];
-        $dateString                      = (string)$bookmark['added']->format('Ymd');
+        $dateString                      = (string) $bookmark['added']->format('Ymd');
         $timeString                      = $bookmark['added']->format('His');
         $dates[$dateString]              = array_key_exists($dateString, $dates) ? $dates[$dateString] : [];
         $dates[$dateString][$timeString] = array_key_exists($timeString, $dates[$dateString]) ? $dates[$dateString][$timeString] : [];
@@ -107,7 +107,7 @@ foreach ($articles as $article) {
     if (is_string($article['archived_at'])) {
         $article['archived_at'] = new Carbon($article['archived_at'], 'Europe/Amsterdam');
     }
-    $dateString                      = (string)$article['archived_at']->format('Ymd');
+    $dateString                      = (string) $article['archived_at']->format('Ymd');
     $timeString                      = $article['archived_at']->format('His');
     $dates[$dateString]              = array_key_exists($dateString, $dates) ? $dates[$dateString] : [];
     $dates[$dateString][$timeString] = array_key_exists($timeString, $dates[$dateString]) ? $dates[$dateString][$timeString] : [];
@@ -150,9 +150,15 @@ foreach ($dates as $date => $content) {
                     $sentence = sprintf("    - 📰 [%s](%s)\n", $entry['data']['title'], $entry['data']['wallabag_url']);
                     $sentence .= sprintf("      Origineel artikel op [%s](%s)\n", $host, $entry['data']['original_url']);
 
+                    // add annotations (if present):
+                    if (count($entry['data']['annotations']) > 0) {
+                        $sentence .= "      - Opmerkingen\n";
+                        foreach ($entry['data']['annotations'] as $annotation) {
+                            $sentence .= sprintf("        - > %s\n          %s\n", $annotation['quote'], $annotation['text']);
+                        }
+                    }
+
                     $markdown .= $sentence;
-                    //                    var_dump($article);
-                    //                    exit;
                     break;
             }
         }
