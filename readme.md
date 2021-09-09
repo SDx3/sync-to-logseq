@@ -16,9 +16,9 @@ Two little scripts that sync bookmarks and articles to Logseq, where it will be 
 ## Running it
 
 - Once configured and installed, run one of the following scripts:
- - `php sync-bookmarks.php` generates `Bookmarks.md` based on your Nextcloud Bookmarks.
- - `php sync-wallabag.php` generates `Artikelen en leesvoer.md` based on your Wallabag articles
- - `php create-stream.php` generates `Stream.md`, a date-based stream of articles and bookmarks.
+ - `php sync-bookmarks.php` generates `Bookmarks.md` based on your Nextcloud Bookmarks ([example](https://notes.sanderdorigo.nl/#/page/bookmarks))
+ - `php sync-wallabag.php` generates `Artikelen en leesvoer.md` based on your Wallabag articles ([example](https://notes.sanderdorigo.nl/#/page/artikelen%20en%20leesvoer))
+ - `php create-stream.php` generates `Stream.md`, a date-based stream of articles and bookmarks ([example](https://notes.sanderdorigo.nl/#/page/stream))
 
  The Wallabag script will make any archived Wallabag article public automatically.
 
