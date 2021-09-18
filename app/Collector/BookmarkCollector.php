@@ -150,6 +150,12 @@ class BookmarkCollector implements CollectorInterface
                 }
                 $this->logger->debug(sprintf('BookmarkCollector found %d bookmarks.', count($body['data'])));
                 foreach ($body['data'] as $entry) {
+                    if(str_contains($entry['url'],'10.0.0')) {
+                        continue;
+                    }
+                    if(str_contains($entry['url'],'calendar.sander')) {
+                        continue;
+                    }
                     $folderId = $entry['folders'][0] ?? -1;
 
                     $this->collection[$folderId] = $this->collection[$folderId] ??
