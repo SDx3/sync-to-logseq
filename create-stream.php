@@ -33,6 +33,7 @@ declare(strict_types=1);
 
 // bookmarks:
 use App\Collector\BookmarkCollector;
+use App\Collector\RssFeedCollector;
 use App\Collector\WallabagCollector;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
@@ -48,6 +49,17 @@ $markdown .= "- Het idee van een 'stream of consciousness' is dat je (met mate) 
 $markdown .= "- Best een leuk idee, en deze pagina is [mijn]([[Sander Dorigo]]) poging om zoiets te bouwen.\n";
 $markdown .= "- Voorlopig bestaat deze stream alleen uit mijn [[Bookmarks]] en [[Artikelen en leesvoer]], maar wie weet wat er nog volgt!\n";
 
+
+// collect RSS published things:
+$configuration = [
+    'feed' => $_ENV['PUBLISHED_ARTICLES_FEED'],
+];
+
+$collector = new RssFeedCollector;
+$collector->setConfiguration($configuration);
+$collector->setLogger($log);
+$collector->collect();
+$published = $collector->getCollection();
 
 // collect bookmarks
 $configuration = [
@@ -117,6 +129,24 @@ foreach ($articles as $article) {
         'data' => $article,
     ];
 }
+
+// now loop RSS feed
+$log->debug('Now looping RSS feed');
+/** @var array $article */
+foreach ($published as $feedArticle) {
+    $dateString                      = $feedArticle['dateModified']->format('Ymd');
+    $timeString                      = $feedArticle['dateModified']->format('His');
+    $dates[$dateString]              = array_key_exists($dateString, $dates) ? $dates[$dateString] : [];
+    $dates[$dateString][$timeString] = array_key_exists($timeString, $dates[$dateString]) ? $dates[$dateString][$timeString] : [];
+
+    // add published article to this array verbatim:
+    $dates[$dateString][$timeString][] = [
+        'type' => 'rss-article',
+        'data' => $feedArticle,
+    ];
+}
+
+
 // sort by date
 krsort($dates, SORT_STRING);
 $log->debug(sprintf('Collected all bookmarks and articles, grouped in %d specific date(s).', count(array_keys($dates))));
@@ -158,6 +188,14 @@ foreach ($dates as $date => $content) {
                         }
                     }
 
+                    $markdown .= $sentence;
+                    break;
+                case 'rss-article':
+                    $host = parse_url($entry['data']['link'], PHP_URL_HOST);
+                    if (str_starts_with($host, 'www.')) {
+                        $host = substr($host, 4);
+                    }
+                    $sentence = sprintf("    - 📙 [%s](%s) (%s)\n", $entry['data']['title'], $entry['data']['link'], $host);
                     $markdown .= $sentence;
                     break;
             }
