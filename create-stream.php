@@ -43,12 +43,7 @@ require 'init.php';
 
 $log->debug('Now creating a thought stream yay');
 
-
-$markdown = "public:: true\n";
-$markdown .= "- Het idee van een 'stream of consciousness' is dat je (met mate) deelt wat je online leest en bookmarkt en weet-ik-veel.\n";
-$markdown .= "- Best een leuk idee, en deze pagina is [mijn]([[Sander Dorigo]]) poging om zoiets te bouwen.\n";
-$markdown .= "- Voorlopig bestaat deze stream alleen uit mijn [[Bookmarks]] en [[Artikelen en leesvoer]], maar wie weet wat er nog volgt!\n";
-
+$markdown = trim(file_get_contents('./templates/Stream.md')). "\n";
 
 // collect RSS published things:
 $configuration = [
