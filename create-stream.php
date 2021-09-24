@@ -43,7 +43,7 @@ require 'init.php';
 
 $log->debug('Now creating a thought stream yay');
 
-$markdown = trim(file_get_contents('./templates/Stream.md')). "\n";
+$markdown = trim(file_get_contents(__DIR__ . '/templates/Stream.md')). "\n";
 
 // collect RSS published things:
 $configuration = [
