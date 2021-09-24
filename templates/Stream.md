@@ -4,5 +4,5 @@ public:: true
 - Het idee is dat je (met mate) deelt wat je online leest
   - Deze pagina is [mijn]([[Sander Dorigo]]) poging om zoiets te doen.
 - Alle links hieronder, aflopend in de tijd, zijn mijn [[Bookmarks]], gelezen en bewaarde artikelen.
-- Ik zou zeggen, lees mee!
+  - Ik zou zeggen, lees mee!
 - Suggesties? [Twitter](https://twitter.com/SanderDorigo)
