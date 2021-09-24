@@ -43,7 +43,13 @@ require 'init.php';
 
 $log->debug('Now creating a thought stream yay');
 
-$markdown = trim(file_get_contents(__DIR__ . '/templates/Stream.md')). "\n";
+$markdown  = trim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Stream.md'))) . "\n";
+$templates = [
+    'header'   => trim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Stream-header.md'))),
+    'article'  => rtrim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Stream-article.md'))),
+    'bookmark' => rtrim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Stream-bookmark.md'))),
+    'rss'      => rtrim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Stream-rss.md'))),
+];
 
 // collect RSS published things:
 $configuration = [
@@ -150,7 +156,7 @@ $log->debug(sprintf('Collected all bookmarks and articles, grouped in %d specifi
 foreach ($dates as $date => $content) {
     krsort($content);
     $dateObject = Carbon::createFromFormat('Ymd', $date, 'Europe/Amsterdam');
-    $markdown   .= sprintf("- %s\n  heading:: true\n", str_replace('  ', ' ', $dateObject->formatLocalized('%A %e %B %Y')));
+    $markdown   .= sprintf($templates['header'], str_replace('  ', ' ', $dateObject->formatLocalized('%A %e %B %Y'))) . "\n";
     // all entries for this date slot:
     foreach ($content as $timeSlot => $entries) {
         // each entry for this timeslot
@@ -163,8 +169,7 @@ foreach ($dates as $date => $content) {
                     if (str_starts_with($host, 'www.')) {
                         $host = substr($host, 4);
                     }
-                    $sentence = sprintf("    - ⭐ [%s](%s) (%s)\n", $entry['data']['title'], $entry['data']['url'], $host);
-                    $markdown .= $sentence;
+                    $markdown .= sprintf($templates['bookmark'], $entry['data']['title'], $entry['data']['url'], $host) . "\n";
                     break;
                 case 'article':
                     $host = parse_url($entry['data']['original_url'], PHP_URL_HOST);
@@ -172,10 +177,10 @@ foreach ($dates as $date => $content) {
                         $host = substr($host, 4);
                     }
 
-                    $sentence = sprintf("    - 📰 [%s](%s)\n", $entry['data']['title'], $entry['data']['wallabag_url']);
-                    $sentence .= sprintf("      Origineel artikel op [%s](%s)\n", $host, $entry['data']['original_url']);
+                    $sentence = sprintf($templates['article'], $entry['data']['title'], $entry['data']['wallabag_url'], $host, $entry['data']['original_url']) . "\n";
 
                     // add annotations (if present):
+                    // is not yet a template :(
                     if (count($entry['data']['annotations']) > 0) {
                         $sentence .= "      - Opmerkingen\n";
                         foreach ($entry['data']['annotations'] as $annotation) {
@@ -190,8 +195,7 @@ foreach ($dates as $date => $content) {
                     if (str_starts_with($host, 'www.')) {
                         $host = substr($host, 4);
                     }
-                    $sentence = sprintf("    - 📙 [%s](%s) (%s)\n", $entry['data']['title'], $entry['data']['link'], $host);
-                    $markdown .= $sentence;
+                    $markdown .= sprintf($templates['rss'], $entry['data']['title'], $entry['data']['link'], $host) . "\n";
                     break;
             }
         }
