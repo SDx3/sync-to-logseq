@@ -1,2 +1,2 @@
     - 📰 [%s](%s)
-      Origineel artikel op [%s](%s)
+      Tags: %s, origineel artikel op [%s](%s)

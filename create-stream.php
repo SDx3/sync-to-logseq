@@ -176,8 +176,15 @@ foreach ($dates as $date => $content) {
                     if (str_starts_with($host, 'www.')) {
                         $host = substr($host, 4);
                     }
+                    $tags = '';
+                    $arr  = [];
+                    foreach ($entry['data']['tags'] as $tag) {
+                        $arr[] = sprintf('[[%s]]', $tag);
+                    }
+                    $tags = implode(', ', $arr);
 
-                    $sentence = sprintf($templates['article'], $entry['data']['title'], $entry['data']['wallabag_url'], $host, $entry['data']['original_url']) . "\n";
+
+                    $sentence = sprintf($templates['article'], $entry['data']['title'], $entry['data']['wallabag_url'],$tags, $host, $entry['data']['original_url']) . "\n";
 
                     // add annotations (if present):
                     // is not yet a template :(
