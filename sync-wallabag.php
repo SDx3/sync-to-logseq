@@ -76,7 +76,7 @@ foreach ($articles as $article) {
 
     // add tags if present:
     if (count($article['tags']) > 0) {
-        $single .= '  tags:: ' . join(', ', $article['tags']) . "\n";
+        //$single .= '  tags:: ' . join(', ', $article['tags']) . "\n";
     }
 
     // add "archived on"
