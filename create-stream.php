@@ -179,7 +179,7 @@ foreach ($dates as $date => $content) {
                     $tags = '';
                     $arr  = [];
                     foreach ($entry['data']['tags'] as $tag) {
-                        $arr[] = sprintf('[[%s]]', $tag);
+                        $arr[] = sprintf('#[[%s]]', $tag);
                     }
                     $tags = implode(', ', $arr);
 
