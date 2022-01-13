@@ -41,8 +41,7 @@ $opts      = [
     ],
 ];
 
-$markdown = "---\npublic: true\n---\n\n- Dit zijn al [mijn]([[Sander Dorigo]]) (publieke) ⭐ bookmarks ⭐.\n";
-$markdown .= "  - Deze lijst is gegenereerd met een [handig tooltje](https://github.com/SDx3/sync-to-logseq).\n";
+$markdown = trim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Bookmarks.md'))) . "\n";
 
 // collect bookmarks
 $configuration = [
@@ -64,7 +63,12 @@ uasort($bookmarks, function (array $a, array $b) {
 // loop folders and generate markdown:
 $level          = 0;
 $expectedParent = 0;
-$markdown       = BookmarkParser::processFolders($markdown, $bookmarks, $level, $expectedParent);
+
+// template
+$bookmarkTemplate = rtrim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Bookmarks-bookmark.md')));
+$bookmarkParser   = new BookmarkParser;
+$bookmarkParser->setBookmarkTemplate($bookmarkTemplate);
+$markdown = $bookmarkParser->processFolders($markdown, $bookmarks, $level, $expectedParent);
 
 // now update (overwrite!) bookmarks file.
 $client = new Client;
