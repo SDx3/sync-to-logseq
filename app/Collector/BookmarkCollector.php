@@ -141,7 +141,7 @@ class BookmarkCollector implements CollectorInterface
             $res  = $client->get(
                 sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/bookmark?limit=100&page=%d', $this->configuration['host'], $page), $opts
             );
-            $data = (string)$res->getBody();
+            $data = (string) $res->getBody();
             $body = json_decode($data, true, 128, JSON_THROW_ON_ERROR);
             if (isset($body['data'])) {
                 if (0 === count($body['data'])) {
@@ -150,17 +150,12 @@ class BookmarkCollector implements CollectorInterface
                 }
                 $this->logger->debug(sprintf('BookmarkCollector found %d bookmarks.', count($body['data'])));
                 foreach ($body['data'] as $entry) {
-                    if(str_contains($entry['url'],'10.0.0')) {
-                        continue;
-                    }
-                    if(str_contains($entry['url'],'calendar.sander')) {
-                        continue;
-                    }
-                    $folderId = $entry['folders'][0] ?? -1;
-
+                    $folderId                    = $entry['folders'][0] ?? -1;
                     $this->collection[$folderId] = $this->collection[$folderId] ??
                                                    [
+                                                       'id'        => $folderId,
                                                        'title'     => '(empty)',
+                                                       'parent'    => 0,
                                                        'bookmarks' => [],
                                                    ];
 
@@ -168,6 +163,7 @@ class BookmarkCollector implements CollectorInterface
                         'title' => $entry['title'],
                         'url'   => $entry['url'],
                         'added' => new Carbon($entry['added'])];
+                    $this->logger->debug(sprintf('Found bookmark "%s" in folder #%d', $entry['title'], $folderId))  ;
                 }
             }
             if (!isset($body['data'])) {
@@ -198,6 +194,7 @@ class BookmarkCollector implements CollectorInterface
      */
     private function collectFolders(): void
     {
+        $this->logger->debug('BookmarkCollector is collecting folders.');
         $client = new Client;
         $opts   = [
             'auth'    => [$this->configuration['username'], $this->configuration['password']],
@@ -205,10 +202,9 @@ class BookmarkCollector implements CollectorInterface
                 'Accept' => 'application/json',
             ],
         ];
-        $this->logger->debug('BookmarkCollector is collecting folders.');
         // get all folders, then get all bookmarks for that folder
         $res  = $client->get(sprintf('https://%s/index.php/apps/bookmarks/public/rest/v2/folder', $this->configuration['host']), $opts);
-        $data = (string)$res->getBody();
+        $data = (string) $res->getBody();
         $body = json_decode($data, true);
         $this->parseFolderNames($body['data']);
         $this->logger->debug('BookmarkCollector is done collecting folders.');
@@ -221,19 +217,23 @@ class BookmarkCollector implements CollectorInterface
     {
         /** @var array $folder */
         foreach ($array as $folder) {
-            $folderId    = $folder['id'];
+            $folderId    = (int) $folder['id'];
             $folderTitle = trim($folder['title']);
             $folderTitle = 0 === strlen($folderTitle) ? '(no title)' : $folderTitle;
 
+            $this->logger->debug(sprintf('Found folder #%d with name "%s"', $folderId, $folderTitle));
+
             $this->folders[$folderId] = [
+                'id'     => $folderId,
                 'title'  => $folderTitle,
-                'parent' => $folder['parent_folder'],
+                'parent' => (int) $folder['parent_folder'],
             ];
 
             if (count($folder['children']) > 0) {
                 $this->parseFolderNames($folder['children']);
             }
         }
+
     }
 
     private function mergeCollection(): void
@@ -244,7 +244,7 @@ class BookmarkCollector implements CollectorInterface
          */
         foreach ($this->collection as $folderId => $info) {
             if (isset($this->folders[$folderId])) {
-                $this->collection[$folderId]['title'] = $this->folders[$folderId]['title'];
+                $this->collection[$folderId]['title']  = $this->folders[$folderId]['title'];
                 $this->collection[$folderId]['parent'] = $this->folders[$folderId]['parent'];
             }
         }
@@ -269,5 +269,13 @@ class BookmarkCollector implements CollectorInterface
     {
         $this->logger = $logger;
         $this->logger->debug('BookmarkCollector has a logger!');
+    }
+
+    /**
+     * @return array
+     */
+    public function getFolders(): array
+    {
+        return $this->folders;
     }
 }
