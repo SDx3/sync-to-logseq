@@ -25,9 +25,9 @@ class BookmarkParser
         $this->log->debug(sprintf('Now in processFolders, level %d and expected parent ID #%d.', $level, $expectedParent));
         foreach ($bookmarks as $folderId => $folder) {
             $parentId = $this->getParentFolderId($bookmarks, $folder);
-            $this->->debug(sprintf('Parent folder ID of folder "%s" is #%d.', $folder['title'], $parentId));
+            $this->log->debug(sprintf('Parent folder ID of folder "%s" is #%d.', $folder['title'], $parentId));
             if ($parentId === $expectedParent) {
-                $this->->debug(sprintf('Parent and expected parent are a match, add folder "%s" (ID #%d) to markdown.', $folder['title'], $folderId));
+                $this->log->debug(sprintf('Parent and expected parent are a match, add folder "%s" (ID #%d) to markdown.', $folder['title'], $folderId));
 
                 // add title:
                 $markdown .= str_repeat("\t", $level);
