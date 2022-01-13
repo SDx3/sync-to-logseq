@@ -1,6 +1,6 @@
-# sync thing
+# Sync thing
 
-Two little scripts that sync bookmarks and articles to Logseq, where it will be published on [notes.sanderdorigo.nl](https://notes.sanderdorigo.nl). It generates Markdown files.
+Three little scripts that sync bookmarks and articles to Logseq, where it will be published on [notes.sanderdorigo.nl](https://notes.sanderdorigo.nl). It generates Markdown files.
 
 ## Basic instructions
 
@@ -15,7 +15,8 @@ Two little scripts that sync bookmarks and articles to Logseq, where it will be 
 
 ## Running it
 
-- Once configured and installed, run one of the following scripts:
+Once configured and installed, run one of the following scripts
+
  - `php sync-bookmarks.php` generates `Bookmarks.md` based on your Nextcloud Bookmarks ([example](https://notes.sanderdorigo.nl/#/page/bookmarks))
  - `php sync-wallabag.php` generates `Artikelen en leesvoer.md` based on your Wallabag articles ([example](https://notes.sanderdorigo.nl/#/page/artikelen%20en%20leesvoer))
  - `php create-stream.php` generates `Stream.md`, a date-based stream of articles and bookmarks ([example](https://notes.sanderdorigo.nl/#/page/stream))
