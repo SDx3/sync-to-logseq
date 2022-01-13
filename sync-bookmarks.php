@@ -68,6 +68,7 @@ $expectedParent = 0;
 $bookmarkTemplate = rtrim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates/Bookmarks-bookmark.md')));
 $bookmarkParser   = new BookmarkParser;
 $bookmarkParser->setBookmarkTemplate($bookmarkTemplate);
+$bookmarkParser->setLog($log);
 $markdown = $bookmarkParser->processFolders($markdown, $bookmarks, $level, $expectedParent);
 
 // now update (overwrite!) bookmarks file.
