@@ -11,6 +11,7 @@ class BookmarkParser
 {
     private string $bookmarkTemplate;
     private Logger $log;
+    private array  $bookmarks;
 
     /**
      * @param string $markdown
@@ -20,11 +21,11 @@ class BookmarkParser
      *
      * @return string
      */
-    public function processFolders(string $markdown, array $bookmarks, int $level, int $expectedParent): string
+    public function processFolders(string $markdown, int $level, int $expectedParent): string
     {
         $this->log->debug(sprintf('Now in processFolders, level %d and expected parent ID #%d.', $level, $expectedParent));
-        foreach ($bookmarks as $folderId => $folder) {
-            $parentId = $this->getParentFolderId($bookmarks, $folder);
+        foreach ($this->bookmarks as $folderId => $folder) {
+            $parentId = $this->getParentFolderId($folder);
             $this->log->debug(sprintf('Parent folder ID of folder "%s" is #%d.', $folder['title'], $parentId));
             if ($parentId === $expectedParent) {
                 $this->log->debug(sprintf('Parent and expected parent are a match, add folder "%s" (ID #%d) to markdown.', $folder['title'], $folderId));
@@ -35,7 +36,7 @@ class BookmarkParser
 
                 // process subfolders
                 $nextLevel = $level + 1;
-                $markdown  = $this->processFolders($markdown, $bookmarks, $nextLevel, $folderId);
+                $markdown  = $this->processFolders($markdown, $nextLevel, $folderId);
 
                 // add bookmarks from THIS folder
                 foreach ($folder['bookmarks'] as $bookmark) {
@@ -66,16 +67,20 @@ class BookmarkParser
     }
 
 
-
     /**
-     * @param array $bookmarks
      * @param array $folder
      *
      * @return int
      */
-    protected function getParentFolderId(array $bookmarks, array $folder): int
+    protected function getParentFolderId(array $folder): int
     {
-        foreach ($bookmarks as $parentId => $parent) {
+        // some folders dont "count" as parent:
+        $ignoreFolders = [263];
+        if (in_array($folder['parent'], $ignoreFolders, true)) {
+            return 0;
+        }
+
+        foreach ($this->bookmarks as $parentId => $parent) {
             if ($parentId === $folder['parent']) {
                 return $parentId;
             }
@@ -92,6 +97,12 @@ class BookmarkParser
         $this->bookmarkTemplate = $bookmarkTemplate;
     }
 
-
+    /**
+     * @param array $bookmarks
+     */
+    public function setBookmarks(array $bookmarks): void
+    {
+        $this->bookmarks = $bookmarks;
+    }
 
 }

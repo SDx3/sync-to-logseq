@@ -30,6 +30,14 @@ use GuzzleHttp\Client;
 require 'vendor/autoload.php';
 require 'init.php';
 
+// debug marker on command line:
+$debug = false;
+$argv  = $argv ?? [];
+if (array_key_exists(1, $argv) && 'debug' === $argv[1]) {
+    $debug = true;
+}
+define('APP_DEBUG', $debug);
+
 // login info and setup
 $log->debug('Now syncing bookmarks.');
 $bookmarks = [];
@@ -52,7 +60,7 @@ $configuration = [
 $collector     = new BookmarkCollector;
 $collector->setConfiguration($configuration);
 $collector->setLogger($log);
-$collector->collect(true);
+$collector->collect(APP_DEBUG);
 $bookmarks = $collector->getCollection();
 
 // sort folders
@@ -69,18 +77,26 @@ $bookmarkTemplate = rtrim(file_get_contents(sprintf('%s/%s', __DIR__, 'templates
 $bookmarkParser   = new BookmarkParser;
 $bookmarkParser->setBookmarkTemplate($bookmarkTemplate);
 $bookmarkParser->setLog($log);
-$markdown = $bookmarkParser->processFolders($markdown, $bookmarks, $level, $expectedParent);
+$bookmarkParser->setBookmarks($bookmarks);
+$markdown = $bookmarkParser->processFolders($markdown, $level, $expectedParent);
 
 // now update (overwrite!) bookmarks file.
-$client = new Client;
-$url    = sprintf('https://%s/remote.php/dav/files/%s/%s/Bookmarks.md', $_ENV['NEXTCLOUD_HOST'], $_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_LOGSEQ_PATH']);
-$opts   = [
-    'auth'    => [$_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_PASS']],
-    'headers' => [
-        'Accept' => 'application/json',
-    ],
-    'body'    => $markdown,
-];
-$log->debug(sprintf('Going to upload to %s', $url));
-$res = $client->put($url, $opts);
+if (false === APP_DEBUG) {
+    $client = new Client;
+    $url    = sprintf('https://%s/remote.php/dav/files/%s/%s/Bookmarks.md', $_ENV['NEXTCLOUD_HOST'], $_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_LOGSEQ_PATH']);
+    $opts   = [
+        'auth'    => [$_ENV['NEXTCLOUD_USERNAME'], $_ENV['NEXTCLOUD_PASS']],
+        'headers' => [
+            'Accept' => 'application/json',
+        ],
+        'body'    => $markdown,
+    ];
+    $log->debug(sprintf('Going to upload to %s', $url));
+    $res = $client->put($url, $opts);
+}
+if (true === APP_DEBUG) {
+    $file = __DIR__ . '/Bookmarks.md';
+    file_put_contents($file, $markdown);
+    $log->debug(sprintf('Written markdown to file %s', $file));
+}
 $log->debug('Done!');

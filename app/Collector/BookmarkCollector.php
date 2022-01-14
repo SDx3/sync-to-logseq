@@ -163,7 +163,7 @@ class BookmarkCollector implements CollectorInterface
                         'title' => $entry['title'],
                         'url'   => $entry['url'],
                         'added' => new Carbon($entry['added'])];
-                    $this->logger->debug(sprintf('Found bookmark "%s" in folder #%d', $entry['title'], $folderId))  ;
+                    $this->logger->debug(sprintf('Found bookmark "%s" in folder #%d', $entry['title'], $folderId));
                 }
             }
             if (!isset($body['data'])) {
@@ -243,11 +243,23 @@ class BookmarkCollector implements CollectorInterface
          * @var array $info
          */
         foreach ($this->collection as $folderId => $info) {
-            if (isset($this->folders[$folderId])) {
-                $this->collection[$folderId]['title']  = $this->folders[$folderId]['title'];
-                $this->collection[$folderId]['parent'] = $this->folders[$folderId]['parent'];
+            $this->collection[$folderId]['id']        = $folderId;
+            $this->collection[$folderId]['title']     = $this->folders[$folderId]['title'];
+            $this->collection[$folderId]['parent']    = $this->folders[$folderId]['parent'];
+            $this->collection[$folderId]['bookmarks'] = $this->collection[$folderId]['bookmarks'] ?? [];
+        }
+        // add empty folders if necessary:
+        foreach ($this->folders as $folderId => $info) {
+            if (!array_key_exists($folderId, $this->collection)) {
+                $this->collection[$folderId] = [
+                    'id'        => $folderId,
+                    'title'     => $info['title'],
+                    'parent'    => $info['parent'],
+                    'bookmarks' => [],
+                ];
             }
         }
+
         $this->logger->debug('BookmarkCollector has merged folders + bookmarks.');
     }
 
